@@ -20,3 +20,4 @@ nav button.active .nav-icon{background:rgba(255,255,255,.15);color:#fff}
 
 /* Ensure the VIFUSOFT wordmark is readable on the white login card. */
 .login-card .brand-copy b { color: #075744 !important; }
+.login-card .brand-copy small { color: #58708b !important; }
