@@ -1,7 +1,7 @@
 /* Specification completion layer: dashboard, store settings, validated Excel and A4 slips. */
 state.settings = {};
-state.recentTab = 'IN';
 state.chartItem = '';
+state.chartPeriod = 'week';
 state.importPlan = null;
 state.loadedSlipKinds = { IN: false, OUT: false };
 state.pendingSlipRequestId = '';
@@ -118,13 +118,14 @@ function formatDateVi(value) {
 
 function chartForSelection() {
   const d = state.dashboard || {};
-  if (!state.chartItem) return d.chart || [];
+  const baseChart = state.chartPeriod === 'month' ? (d.chartMonth || []) : (d.chartWeek || d.chart || []);
+  if (!state.chartItem) return baseChart;
   const code = state.chartItem;
   const item = state.items.find(x => x.MA_HANG === code);
-  if (!item) return d.chart || [];
+  if (!item) return baseChart;
   const inRows = state.inbound.flatMap(s => s.lines.map(l => ({ date: String(s.date).slice(0, 10), ...l })));
   const outRows = state.outbound.flatMap(s => s.lines.map(l => ({ date: String(s.date).slice(0, 10), ...l })));
-  return (d.chart || []).map(point => {
+  return baseChart.map(point => {
     const date = point.date;
     const inboundQty = inRows.filter(x => x.code === code && x.date === date).reduce((a, x) => a + x.qty, 0);
     const outboundQty = outRows.filter(x => x.code === code && x.date === date).reduce((a, x) => a + x.qty, 0);
@@ -145,10 +146,24 @@ function dashboardChart() {
   const bars = data.map((p, i) => {
     const x = left + i * step + step / 2;
     const hi = p.inboundQty / maxFlow * plotH, ho = p.outboundQty / maxFlow * plotH;
-    return `<rect x="${x - barW - 2}" y="${top + plotH - hi}" width="${barW}" height="${hi}" rx="3" fill="#087653"><title>Nhập ${num(p.inboundQty)}</title></rect><rect x="${x + 2}" y="${top + plotH - ho}" width="${barW}" height="${ho}" rx="3" fill="#247cf0"><title>Xuất ${num(p.outboundQty)}</title></rect><text x="${x}" y="${h - 9}" text-anchor="middle">${esc(String(p.date || '').slice(5).replace('-', '/'))}</text>`;
+    const label = state.chartPeriod === 'month' ? String(p.date || '').slice(8, 10) : String(p.date || '').slice(5).replace('-', '/');
+    const showLabel = state.chartPeriod !== 'month' || i % 5 === 0 || i === data.length - 1;
+    return `<rect x="${x - barW - 2}" y="${top + plotH - hi}" width="${barW}" height="${hi}" rx="3" fill="#087653"><title>Nhập ${num(p.inboundQty)}</title></rect><rect x="${x + 2}" y="${top + plotH - ho}" width="${barW}" height="${ho}" rx="3" fill="#247cf0"><title>Xuất ${num(p.outboundQty)}</title></rect>${showLabel ? `<text x="${x}" y="${h - 9}" text-anchor="middle">${esc(label)}</text>` : ''}`;
   }).join('');
   const points = data.map((p, i) => `${left + i * step + step / 2},${top + plotH - p.stockQty / maxStock * plotH}`).join(' ');
-  return `<svg class="dash-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Biểu đồ nhập xuất tồn 7 ngày"><line x1="${left}" y1="${top + plotH}" x2="${w - right}" y2="${top + plotH}" stroke="var(--line)"/><polyline points="${points}" fill="none" stroke="#f58220" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${bars}<text x="7" y="18" class="axis-label">Nhập / xuất</text><text x="${w - 50}" y="18" class="axis-label">Tồn</text></svg>`;
+  const periodName = state.chartPeriod === 'month' ? 'tháng này theo ngày' : '7 ngày gần nhất';
+  return `<svg class="dash-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Biểu đồ nhập xuất tồn ${periodName}"><line x1="${left}" y1="${top + plotH}" x2="${w - right}" y2="${top + plotH}" stroke="var(--line)"/><polyline points="${points}" fill="none" stroke="#f58220" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${bars}<text x="7" y="18" class="axis-label">Nhập / xuất</text><text x="${w - 50}" y="18" class="axis-label">Tồn</text></svg>`;
+}
+
+function inventoryValueChart() {
+  const items = state.dashboard?.topValueItems || [];
+  if (!items.length) return '<p class="muted">Chưa có giá trị tồn kho để hiển thị.</p>';
+  const maxValue = Math.max(1, ...items.map(x => Number(x.GIA_TRI_TON) || 0));
+  return `<div class="inventory-value-chart">${items.map(x => {
+    const value = Number(x.GIA_TRI_TON) || 0;
+    const width = Math.max(2, Math.round(value / maxValue * 100));
+    return `<div class="value-chart-item"><div class="value-chart-label"><span><b>${esc(x.MA_HANG)}</b> · ${esc(x.TEN_HANG)}</span><strong>${money(value)}</strong></div><div class="value-chart-track"><i style="width:${width}%"></i></div></div>`;
+  }).join('')}</div>`;
 }
 
 function dashboardView() {
@@ -161,16 +176,12 @@ function dashboardView() {
     ['Mặt hàng tồn thấp', num(d.lowStockCount), 'stock', 'red', 'Bằng hoặc dưới mức tồn tối thiểu']
   ];
   const top = (d.topItems || []).map((x, i) => `<tr><td>${i + 1}</td><td>${esc(x.MA_HANG)}</td><td>${esc(x.TEN_HANG)}</td><td>${num(x.TON_HIEN_TAI)}</td><td>${esc(x.DON_VI)}</td></tr>`);
-  const recent = (state.recentTab === 'IN' ? d.recentInbound : d.recentOutbound) || [];
-  const kindKey = state.recentTab === 'IN' ? 'inbound' : 'outbound';
-  const recentRows = recent.map(x => {
-    return `<tr><td>${esc(x.no)}</td><td>${formatDateVi(x.date)}</td><td>${esc(x.party || '—')}</td><td>${num(x.qty)}</td>${state.recentTab === 'IN' ? `<td>${money(x.total)}</td>` : ''}<td><button data-action="open-recent-slip" data-kind="${state.recentTab}" data-id="${esc(x.id)}" data-operation="view">Chi tiết</button><button data-action="open-recent-slip" data-kind="${state.recentTab}" data-id="${esc(x.id)}" data-operation="print">In</button></td></tr>`;
-  });
+  const topOutbound = (d.topOutboundItems || []).map((x, i) => `<tr><td>${i + 1}</td><td>${esc(x.MA_HANG)}</td><td>${esc(x.TEN_HANG)}</td><td>${num(x.TONG_XUAT)}</td><td>${esc(x.DON_VI)}</td></tr>`);
   const lowRows = low.slice(0, 10).map(x => `<tr><td>${esc(x.MA_HANG)}</td><td>${esc(x.TEN_HANG)}</td><td>${num(x.TON_HIEN_TAI)}</td><td>${esc(x.DON_VI)}</td><td>${num(x.TON_TOI_THIEU)}</td></tr>`);
   return `<div class="grid stats">${stats.map(([label, value, page, color, caption]) => `<button class="stat stat-${color}" data-go="${page}"><span class="muted">${label}</span><strong class="value">${value}</strong><small>${caption}</small></button>`).join('')}</div>
-    <div class="grid two dash-grid"><div class="panel"><div class="panel-title-row"><div><h2>Nhập – xuất – tồn 7 ngày gần nhất</h2><small class="muted">${state.chartItem ? `Mặt hàng ${esc(state.chartItem)}` : esc(d.chartNote || '')}</small></div><select id="chartItem" aria-label="Lọc biểu đồ theo mặt hàng"><option value="">Tất cả mặt hàng · chỉ báo số học</option>${state.items.filter(x => x.TRANG_THAI === 'Đang dùng').map(x => `<option value="${esc(x.MA_HANG)}" ${state.chartItem === x.MA_HANG ? 'selected' : ''}>${esc(x.MA_HANG)} · ${esc(x.TEN_HANG)}</option>`).join('')}</select></div><div class="chart-legend"><span><i class="legend-in"></i>Nhập</span><span><i class="legend-out"></i>Xuất</span><span><i class="legend-stock"></i>Tồn cuối ngày</span></div>${dashboardChart()}</div>
-    <div class="panel"><div class="panel-title-row"><h2>Top 5 mặt hàng tồn nhiều nhất</h2><button data-go="stock">Xem tồn kho</button></div><p class="footnote">Xếp hạng theo số lượng; đơn vị các mặt hàng có thể khác nhau.</p>${table(['#','Mã hàng','Tên hàng','Tồn kho','ĐVT'], top)}</div></div>
-    <div class="panel dashboard-recent"><div class="panel-title-row"><div><h2>Phiếu gần đây</h2><div class="tabs"><button data-action="recent-tab" data-kind="IN" class="${state.recentTab === 'IN' ? 'active' : ''}">Phiếu nhập</button><button data-action="recent-tab" data-kind="OUT" class="${state.recentTab === 'OUT' ? 'active' : ''}">Phiếu xuất</button></div></div><button data-go="${kindKey}">Xem tất cả</button></div>${table(['Số phiếu','Ngày','Nhà cung cấp / Nơi nhận','Tổng số lượng',state.recentTab === 'IN' ? 'Tổng tiền' : '', 'Thao tác'].filter(Boolean), recentRows)}</div>
+    <div class="grid two dash-grid"><div class="panel"><div class="panel-title-row"><div><h2>Nhập – xuất – tồn</h2><small class="muted">${state.chartItem ? `Mặt hàng ${esc(state.chartItem)}` : esc(d.chartNote || '')}</small></div><div class="dash-chart-controls"><select id="chartPeriod" aria-label="Chọn khoảng thời gian biểu đồ"><option value="week" ${state.chartPeriod === 'week' ? 'selected' : ''}>Theo tuần · 7 ngày</option><option value="month" ${state.chartPeriod === 'month' ? 'selected' : ''}>Theo tháng · tháng này</option></select><select id="chartItem" aria-label="Lọc biểu đồ theo mặt hàng"><option value="">Tất cả mặt hàng · chỉ báo số học</option>${state.items.filter(x => x.TRANG_THAI === 'Đang dùng').map(x => `<option value="${esc(x.MA_HANG)}" ${state.chartItem === x.MA_HANG ? 'selected' : ''}>${esc(x.MA_HANG)} · ${esc(x.TEN_HANG)}</option>`).join('')}</select></div></div><div class="chart-legend"><span><i class="legend-in"></i>Nhập</span><span><i class="legend-out"></i>Xuất</span><span><i class="legend-stock"></i>Tồn cuối ngày</span></div>${dashboardChart()}</div>
+    <div class="panel"><div class="panel-title-row"><div><h2>Giá trị tồn kho theo mặt hàng</h2><small class="muted">Top 5 theo giá mua hiện tại</small></div><button data-go="stock">Xem tồn kho</button></div>${inventoryValueChart()}</div></div>
+    <div class="grid two dashboard-top-tables"><div class="panel"><div class="panel-title-row"><h2>Top 5 mặt hàng tồn nhiều nhất</h2><button data-go="stock">Xem tồn kho</button></div><p class="footnote">Xếp hạng theo số lượng; đơn vị các mặt hàng có thể khác nhau.</p>${table(['#','Mã hàng','Tên hàng','Tồn kho','ĐVT'], top)}</div><div class="panel"><div class="panel-title-row"><h2>Top 5 mặt hàng xuất nhiều nhất</h2><button data-go="outbound">Xem phiếu xuất</button></div><p class="footnote">Xếp hạng theo tổng số lượng đã xuất, từ trước đến nay.</p>${table(['#','Mã hàng','Tên hàng','Tổng xuất','ĐVT'], topOutbound)}</div></div>
     <div class="panel"><div class="panel-title-row"><h2>Hàng tồn thấp</h2><button data-go="stock" data-low="1">Xem tất cả (${low.length})</button></div>${table(['Mã hàng','Tên hàng','Tồn kho','ĐVT','Tồn tối thiểu'], lowRows)}</div>`;
 }
 
@@ -392,7 +403,6 @@ function excelDateValue(value) {
 }
 
 async function handleSpecAction(action, button) {
-  if (action === 'recent-tab') { state.recentTab = button.dataset.kind; render(); return true; }
   if (action === 'open-recent-slip') {
     const kind = button.dataset.kind, page = kind === 'IN' ? 'inbound' : 'outbound';
     await ensureSlipData(kind);
@@ -504,6 +514,10 @@ document.addEventListener('click', async e => {
 });
 
 document.addEventListener('change', e => {
+  if (e.target.id === 'chartPeriod') {
+    state.chartPeriod = e.target.value === 'month' ? 'month' : 'week';
+    render();
+  }
   if (e.target.id === 'chartItem') {
     state.chartItem = e.target.value;
     if (state.chartItem) Promise.all([ensureSlipData('IN'), ensureSlipData('OUT')]).then(render).catch(err => notify(err.message, true));
