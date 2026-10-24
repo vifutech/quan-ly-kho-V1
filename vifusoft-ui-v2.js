@@ -36,6 +36,7 @@ async function request(action, data = {}) {
 
 async function refresh() {
   const content = $('#content');
+  setConnectionStatus('checking');
   if (content && !state.items.length) content.innerHTML = '<div class="loading-state">Đang tải dữ liệu kho…</div>';
   try {
     const snapshot = await request('getAppData');
@@ -51,11 +52,23 @@ async function refresh() {
       catch (userError) { notify('Không tải được danh sách tài khoản: ' + userError.message, true); }
     }
     if (state.page === 'inbound' || state.page === 'outbound') await ensureSlipData(state.page === 'inbound' ? 'IN' : 'OUT');
+    setConnectionStatus('connected');
     render();
   } catch (e) {
+    setConnectionStatus('disconnected');
     if (content && !state.items.length) content.innerHTML = `<div class="error-panel">${esc(e.message)}</div>`;
     notify(e.message, true);
   }
+}
+
+function setConnectionStatus(status) {
+  const label = $('#connectionStatus');
+  const badge = label?.closest('.demo');
+  if (!label || !badge) return;
+  const words = { checking: 'ĐANG KIỂM TRA GOOGLE SHEET', connected: 'ĐÃ KẾT NỐI GOOGLE SHEET', disconnected: 'MẤT KẾT NỐI GOOGLE SHEET' };
+  label.textContent = words[status] || words.disconnected;
+  badge.classList.toggle('is-connected', status === 'connected');
+  badge.classList.toggle('is-disconnected', status === 'disconnected');
 }
 
 async function ensureSlipData(kind) {
@@ -160,7 +173,7 @@ function render() {
   }
   if (state.page === 'inbound' || state.page === 'outbound') {
     const k = state.page, slips = state[k].filter(x => `${x.no} ${x.party}`.toLowerCase().includes(state.query.toLowerCase()));
-    const rows = slips.map(x => `<tr><td>${esc(x.no)}</td><td>${formatDateVi(x.date)}</td><td>${esc(x.party || '—')}</td><td>${x.lines.length} dòng · ${num(x.qty)}</td><td>${esc(x.creator)}</td><td>${k === 'inbound' ? money(x.total) : '—'}</td><td class="actions"><button data-action="view-slip" data-kind="${k}" data-id="${esc(x.id)}">Xem</button><button data-action="edit-slip" data-kind="${k}" data-id="${esc(x.id)}">Sửa</button><button class="delete" data-action="delete-slip" data-kind="${k}" data-id="${esc(x.id)}">Xóa</button><button data-action="print-slip" data-kind="${k}" data-id="${esc(x.id)}">In</button></td></tr>`);
+    const rows = slips.map(x => `<tr><td>${esc(x.no)}</td><td>${formatDateVi(x.date)}</td><td>${esc(x.party || '—')}</td><td>${x.lines.length} dòng · ${num(x.qty)}</td><td>${esc(x.creator)}</td><td>${k === 'inbound' ? money(x.total) : '—'}</td><td class="actions"><button data-action="view-slip-detail-v2" data-kind="${k}" data-id="${esc(x.id)}" aria-label="Xem phiếu">Xem</button><button data-action="edit-slip" data-kind="${k}" data-id="${esc(x.id)}" aria-label="Sửa phiếu">Sửa</button><button class="delete" data-action="delete-slip" data-kind="${k}" data-id="${esc(x.id)}" aria-label="Xóa phiếu">Xóa</button><button data-action="print-slip" data-kind="${k}" data-id="${esc(x.id)}" aria-label="In phiếu">In</button></td></tr>`);
     content = `${toolbar('Tìm số phiếu hoặc đối tượng', `<button class="primary" data-action="new-slip" data-kind="${k}">+ Lập phiếu ${k === 'inbound' ? 'nhập' : 'xuất'}</button>`)}${panel('Danh sách phiếu', state.loadedSlipKinds[k === 'inbound' ? 'IN' : 'OUT'] ? table(['Số phiếu','Ngày','Nhà cung cấp / Nơi nhận','Dòng hàng / SL','Người lập','Tổng tiền nhập','Thao tác'], rows) : '<div class="loading-state">Đang tải phiếu…</div>')}`;
   }
   if (state.page === 'accounts') {
@@ -175,18 +188,18 @@ function excelPanel() {
   const plan = state.importPlan;
   const errors = plan?.errors?.length ? `<div class="import-errors"><b>Chưa thể nhập dữ liệu (${plan.errors.length} lỗi):</b><ul>${plan.errors.map(x => `<li>Dòng ${x.row}: ${esc(x.message)}</li>`).join('')}</ul></div>` : '';
   const preview = plan ? `<p>Đã kiểm tra ${plan.rows.length} dòng. ${plan.validCount} dòng hợp lệ; ${plan.errors.length} dòng lỗi.</p>${errors}${plan.kind === 'items' && plan.existingCount ? `<label class="checkline"><input id="updateExisting" type="checkbox"> Cập nhật mặt hàng trùng mã sau khi xác nhận (giữ nguyên tồn đầu)</label>` : ''}${table(plan.kind === 'items' ? ['Mã hàng','Tên hàng','Đơn vị','Tồn đầu','Tồn tối thiểu','Giá mua','Trạng thái','Kết quả'] : ['Số phiếu','Ngày','Mã hàng','Tên hàng','Số lượng','Đơn giá / Đối tượng','Ghi chú','Kết quả'], plan.rows.slice(0, 40).map(x => `<tr class="${x._error ? 'row-error' : ''}">${plan.kind === 'items' ? `<td>${esc(x.MA_HANG)}</td><td>${esc(x.TEN_HANG)}</td><td>${esc(x.DON_VI)}</td><td>${esc(x.TON_DAU)}</td><td>${esc(x.TON_TOI_THIEU)}</td><td>${esc(x.GIA_MUA)}</td><td>${esc(x.TRANG_THAI)}</td>` : `<td>${esc(x.SO_PHIEU)}</td><td>${esc(x.NGAY)}</td><td>${esc(x.MA_HANG)}</td><td>${esc(x.TEN_HANG)}</td><td>${esc(x.SO_LUONG)}</td><td>${esc(x.DON_GIA ?? x.DOI_TUONG)}</td><td>${esc(x.GHI_CHU)}</td>`}<td>${esc(x._error || (x._exists ? 'Mã đã có' : 'Hợp lệ'))}</td></tr>`))}${plan.rows.length > 40 ? `<p class="footnote">Đang hiển thị 40/${plan.rows.length} dòng đầu.</p>` : ''}` : '<p class="muted">Chọn tệp rồi xem trước. Ứng dụng chưa ghi dữ liệu cho tới khi anh xác nhận.</p>';
-  return `<div class="panel"><h2>Nhập / Xuất Excel</h2><p>Nhập danh mục hoặc phiếu nhập/xuất theo lô. Bản xem trước chỉ ra lỗi theo dòng; dữ liệu chỉ được gửi sau khi xác nhận.</p><div class="formgrid"><label>Loại dữ liệu<select id="importKind"><option value="items">Danh mục hàng hóa</option><option value="IN">Phiếu nhập</option><option value="OUT">Phiếu xuất</option></select></label><label>Tệp Excel<input type="file" id="importFile" accept=".xlsx,.xls,.csv"></label></div><p class="row-actions"><button data-action="preview-import">Kiểm tra và xem trước</button><button class="primary" data-action="commit-import" ${plan?.errors?.length || !plan ? 'disabled' : ''}>Xác nhận nhập</button><button data-action="download-template">Tải mẫu danh mục 20 dòng</button></p><div id="importPreview">${preview}</div><hr><label>Loại dữ liệu xuất<select id="exportKind"><option value="items">Danh mục và tồn kho</option><option value="IN">Phiếu nhập</option><option value="OUT">Phiếu xuất</option></select></label> <button data-action="export-v1">Tải Excel</button><p class="footnote">Tệp xuất chỉ có dữ liệu nghiệp vụ; không bao gồm mật khẩu, mã băm, token hay bí mật.</p></div>`;
+  return `<div class="excel-layout"><section class="panel excel-section"><div class="section-heading"><span class="section-icon">⇧</span><div><h2>Nhập dữ liệu</h2><p>Chọn tệp và kiểm tra trước khi xác nhận ghi vào Google Sheets.</p></div></div><div class="excel-fields"><label>Loại dữ liệu<select id="importKind"><option value="items">Danh mục hàng hóa</option><option value="IN">Phiếu nhập</option><option value="OUT">Phiếu xuất</option></select></label><label>Tệp Excel hoặc CSV<input type="file" id="importFile" accept=".xlsx,.xls,.csv"></label></div><div class="excel-actions"><button data-action="preview-import">Xem trước và kiểm tra</button><button class="primary" data-action="commit-import" ${plan?.errors?.length || !plan ? 'disabled' : ''}>Xác nhận nhập</button><button class="quiet" data-action="download-template">Tải mẫu danh mục</button></div><div id="importPreview">${preview}</div></section><section class="panel excel-section excel-export"><div class="section-heading"><span class="section-icon export-icon">⇩</span><div><h2>Xuất dữ liệu</h2><p>Tải danh mục, tồn kho hoặc lịch sử phiếu thành tệp Excel.</p></div></div><div class="excel-export-row"><label>Loại dữ liệu xuất<select id="exportKind"><option value="items">Danh mục và tồn kho</option><option value="IN">Phiếu nhập</option><option value="OUT">Phiếu xuất</option></select></label><button class="primary" data-action="export-v1">Tải tệp Excel</button></div><small class="footnote">Tệp xuất chỉ gồm dữ liệu nghiệp vụ; không có mật khẩu, mã băm hoặc token.</small></section></div>`;
 }
 
 function settingsPanel() {
   const admin = state.user?.role === 'ADMIN';
   const tabs = [['connection','Kết nối'], ...(admin ? [['store','Thông tin cửa hàng']] : []), ['security','Bảo mật'], ['appearance','Giao diện'], ['password','Đổi mật khẩu']];
   let body = '';
-  if (state.settingsTab === 'connection') body = `<div class="settings-table"><div class="settings-row"><label for="settingsUrl">Apps Script Web App URL</label><div class="settings-control"><input class="field" id="settingsUrl" value="${esc(apiUrl())}" placeholder="https://script.google.com/macros/s/.../exec"><small>URL chỉ lưu trong trình duyệt đang dùng.</small></div></div></div><div class="settings-actions"><button class="primary" data-action="save-url">Lưu URL</button></div>`;
+  if (state.settingsTab === 'connection') body = `<section class="settings-card"><div class="settings-card-heading"><span class="settings-card-icon">⌁</span><div><h3>Kết nối Apps Script</h3><p>Địa chỉ API của Web App dùng cho trình duyệt này.</p></div></div><label class="settings-field" for="settingsUrl">Apps Script Web App URL<input class="field" id="settingsUrl" value="${esc(apiUrl())}" placeholder="https://script.google.com/macros/s/.../exec"><small>URL được lưu riêng trong trình duyệt đang dùng.</small></label><div class="settings-card-actions"><button class="primary" data-action="save-url">Lưu địa chỉ kết nối</button></div></section>`;
   if (state.settingsTab === 'store' && admin) body = `<form id="storeSettingsForm" class="settings-table"><div class="settings-row"><label for="storeName">Tên cửa hàng / đơn vị <span class="required">*</span></label><div class="settings-control"><input id="storeName" name="storeName" required maxlength="120" value="${esc(state.settings.storeName)}"></div></div><div class="settings-row"><label for="storeAddress">Địa chỉ</label><div class="settings-control"><input id="storeAddress" name="address" maxlength="200" value="${esc(state.settings.address)}"></div></div><div class="settings-row"><label for="storePhone">Điện thoại</label><div class="settings-control"><input id="storePhone" name="phone" maxlength="40" value="${esc(state.settings.phone)}"></div></div><div class="settings-row"><label for="storeTaxCode">Mã số thuế</label><div class="settings-control"><input id="storeTaxCode" name="taxCode" maxlength="40" value="${esc(state.settings.taxCode)}"></div></div><div class="settings-row"><label for="storeFooterNote">Ghi chú chân trang</label><div class="settings-control"><input id="storeFooterNote" name="footerNote" maxlength="200" value="${esc(state.settings.footerNote)}"></div></div></form><div class="settings-actions"><button class="primary" data-action="save-store-settings">Lưu thông tin cửa hàng</button></div>`;
-  if (state.settingsTab === 'security') body = `<div class="settings-table"><div class="settings-row"><b>Phiên đăng nhập</b><div class="settings-description">Phiên và quyền thao tác được kiểm tra tại Apps Script.</div></div><div class="settings-row"><b>Bảo vệ tài khoản</b><div class="settings-description">Không chia sẻ mật khẩu hoặc mã phiên với người khác.</div></div></div>`;
-  if (state.settingsTab === 'appearance') body = `<div class="settings-table"><div class="settings-row"><label>Giao diện cá nhân</label><div class="settings-control"><button data-action="theme">${state.theme === 'dark' ? 'Chuyển sang sáng' : 'Chuyển sang tối'}</button><small>Áp dụng cho trình duyệt đang sử dụng.</small></div></div></div>`;
-  if (state.settingsTab === 'password') body = `<div class="settings-table"><div class="settings-row"><div><b>Mật khẩu tài khoản</b><small class="settings-hint">Đổi mật khẩu đăng nhập hiện tại.</small></div><div class="settings-control"><button class="primary" data-action="change-password">Đổi mật khẩu</button></div></div></div>`;
+  if (state.settingsTab === 'security') body = `<div class="settings-card-grid"><section class="settings-card"><div class="settings-card-heading"><span class="settings-card-icon">✓</span><div><h3>Phiên đăng nhập</h3><p>Phiên và quyền thao tác được xác minh tại Apps Script.</p></div></div></section><section class="settings-card"><div class="settings-card-heading"><span class="settings-card-icon">◇</span><div><h3>Bảo vệ tài khoản</h3><p>Không chia sẻ mật khẩu hoặc mã phiên với người khác.</p></div></div></section></div>`;
+  if (state.settingsTab === 'appearance') body = `<section class="settings-card settings-option"><div class="settings-card-heading"><span class="settings-card-icon">◐</span><div><h3>Giao diện cá nhân</h3><p>Chọn giao diện hiển thị trong trình duyệt này.</p></div></div><button data-action="theme">${state.theme === 'dark' ? 'Chuyển sang sáng' : 'Chuyển sang tối'}</button></section>`;
+  if (state.settingsTab === 'password') body = `<section class="settings-card settings-option"><div class="settings-card-heading"><span class="settings-card-icon">⌑</span><div><h3>Mật khẩu tài khoản</h3><p>Đổi mật khẩu đăng nhập hiện tại của anh.</p></div></div><button class="primary" data-action="change-password">Đổi mật khẩu</button></section>`;
   return panel('Cài đặt', `<div class="tabs">${tabs.map(([id, label]) => `<button data-setting="${id}" class="${state.settingsTab === id ? 'active' : ''}">${label}</button>`).join('')}</div>${body}`);
 }
 
@@ -200,7 +213,7 @@ function lineHTML(line, kind) {
 function slipForm(kind, slip) {
   state.pendingSlipRequestId = slip ? '' : crypto.randomUUID().replaceAll('-', '');
   const lines = slip?.lines?.length ? slip.lines : [{ code: '', qty: 1 }];
-  const fields = `<form id="slipForm"><div class="formgrid"><label>Ngày<input name="date" type="date" required value="${esc(String(slip?.date || today()).slice(0, 10))}"></label><label class="span2">${kind === 'inbound' ? 'Nhà cung cấp' : 'Nơi nhận / Người nhận'}<input name="counterparty" required value="${esc(slip?.party || '')}"></label><label class="span2">Ghi chú<input name="note" value="${esc(slip?.note || '')}"></label></div><div class="tablewrap"><table><thead><tr><th>Mặt hàng</th><th>Số lượng</th>${kind === 'inbound' ? '<th>Đơn giá</th>' : ''}<th></th></tr></thead><tbody id="lineRows">${lines.map(x => lineHTML(x, kind)).join('')}</tbody></table></div><p id="slipTotal" class="slip-total"></p><button type="button" data-action="add-line" data-kind="${kind}">+ Thêm dòng</button></form>`;
+  const fields = `<form id="slipForm" class="slip-form"><section class="slip-form-block"><div class="slip-form-heading"><span class="slip-form-mark">${kind === 'inbound' ? '↓' : '↑'}</span><div><h3>Thông tin phiếu</h3><p>Nhập thông tin chung trước khi thêm các mặt hàng.</p></div></div><div class="slip-fields"><label>Ngày ${kind === 'inbound' ? 'nhập' : 'xuất'}<input name="date" type="date" required value="${esc(String(slip?.date || today()).slice(0, 10))}"></label><label>${kind === 'inbound' ? 'Nhà cung cấp' : 'Nơi nhận / Người nhận'}<input name="counterparty" required value="${esc(slip?.party || '')}" placeholder="Nhập tên đối tượng"></label><label class="slip-note-field">Ghi chú<input name="note" value="${esc(slip?.note || '')}" placeholder="Thông tin bổ sung (nếu có)"></label></div></section><section class="slip-form-block"><div class="slip-form-heading"><span class="slip-form-mark">▦</span><div><h3>Chi tiết mặt hàng</h3><p>Chọn mặt hàng, nhập số lượng${kind === 'inbound' ? ' và đơn giá' : ''}.</p></div></div><div class="tablewrap"><table class="slip-lines-table"><thead><tr><th>Mặt hàng</th><th>Số lượng</th>${kind === 'inbound' ? '<th>Đơn giá</th>' : ''}<th></th></tr></thead><tbody id="lineRows">${lines.map(x => lineHTML(x, kind)).join('')}</tbody></table></div><div class="slip-form-bottom"><button class="secondary" type="button" data-action="add-line" data-kind="${kind}">＋ Thêm mặt hàng</button><p id="slipTotal" class="slip-total"></p></div></section></form>`;
   modal(slip ? `Sửa phiếu ${esc(slip.no)}` : `Lập phiếu ${kind === 'inbound' ? 'nhập kho' : 'xuất kho'}`, fields, `<button data-action="close">Hủy</button><button class="primary" data-action="save-slip-v1" data-kind="${kind}" data-id="${esc(slip?.id || '')}">Lưu phiếu</button>`);
   updateSlipTotal();
 }
@@ -224,10 +237,23 @@ function printSlip(kind, id) {
   const amount = slip.lines.reduce((sum, x) => sum + Number(x.qty || 0) * Number(x.price || 0), 0);
   const w = window.open('', '_blank');
   if (!w) return notify('Trình duyệt đã chặn cửa sổ in.', true);
-  w.document.write(`<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>${esc(slip.no)}</title><style>
-    @page{size:A4 portrait;margin:16mm}*{box-sizing:border-box}body{font:13px/1.45 Arial,"Segoe UI",sans-serif;color:#172a24;margin:0}.store{text-align:center;border-bottom:2px solid #087653;padding-bottom:10px;margin-bottom:16px}.store h2{font-size:18px;margin:0 0 4px;color:#075744}.store p{margin:1px}.title{text-align:center;font-size:21px;margin:18px 0 14px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:4px 20px;margin:10px 0}table{width:100%;border-collapse:collapse;margin:12px 0}thead{display:table-header-group}th,td{border:1px solid #444;padding:6px 7px;vertical-align:top}th{text-align:center;background:#edf5f1}td.num{text-align:right}.total{text-align:right;font-weight:bold}.note{min-height:28px}.signatures{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center;margin-top:42px;page-break-inside:avoid}.signatures b{display:block}.signatures small{display:block;font-style:italic;margin-top:3px}.signature-space{height:70px}tr{page-break-inside:avoid}.footer{text-align:center;margin-top:24px;color:#52675d}@media print{button{display:none}}
+  w.document.write(`<!doctype html><html lang="vi"><head><meta charset="utf-8"><title> </title><style>
+    @page{size:A4 portrait;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0}body{font:13px/1.45 Arial,"Segoe UI",sans-serif;color:#172a24;padding:16mm}.store{text-align:center;border-bottom:2px solid #087653;padding-bottom:10px;margin-bottom:16px}.store h2{font-size:18px;margin:0 0 4px;color:#075744}.store p{margin:1px}.title{text-align:center;font-size:21px;margin:18px 0 14px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:4px 20px;margin:10px 0}table{width:100%;border-collapse:collapse;margin:12px 0}thead{display:table-header-group}th,td{border:1px solid #444;padding:6px 7px;vertical-align:top}th{text-align:center;background:#edf5f1}td.num{text-align:right}.total{text-align:right;font-weight:bold}.note{min-height:28px}.signatures{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center;margin-top:42px;page-break-inside:avoid}.signatures b{display:block}.signatures small{display:block;font-style:italic;margin-top:3px}.signature-space{height:70px}tr{page-break-inside:avoid}.footer{text-align:center;margin-top:24px;color:#52675d}@media print{button{display:none}}
   </style></head><body><header class="store"><h2>${esc(store.storeName)}</h2>${store.address ? `<p>${esc(store.address)}</p>` : ''}${store.phone ? `<p>Điện thoại: ${esc(store.phone)}</p>` : ''}${store.taxCode ? `<p>Mã số thuế: ${esc(store.taxCode)}</p>` : ''}</header><h1 class="title">${inbound ? 'PHIẾU NHẬP KHO' : 'PHIẾU XUẤT KHO'}</h1><div class="meta"><div><b>Số phiếu:</b> ${esc(slip.no)}</div><div><b>Ngày:</b> ${formatDateVi(slip.date)}</div>${inbound ? `<div><b>Nhà cung cấp:</b> ${esc(slip.party || '')}</div>` : `<div><b>Nơi nhận:</b> ${esc(slip.party || '')}</div>`}<div><b>Người lập:</b> ${esc(slip.creator || '')}</div></div><table><thead><tr><th>STT</th><th>Mã hàng</th><th>Tên hàng</th><th>Đơn vị</th><th>Số lượng</th>${inbound ? '<th>Đơn giá</th><th>Thành tiền</th>' : ''}</tr></thead><tbody>${bodyRows}</tbody></table><p class="total">Tổng số lượng: ${num(qty)}</p>${inbound ? `<p class="total">Tổng tiền: ${money(amount)}</p>` : ''}<p class="note"><b>Ghi chú:</b> ${esc(slip.note || '')}</p><div class="signatures"><div><b>Người lập phiếu</b><small>(Ký, họ tên)</small><div class="signature-space"></div>${esc(slip.creator || '')}</div><div><b>${inbound ? 'Người giao hàng' : 'Người nhận hàng'}</b><small>(Ký, họ tên)</small><div class="signature-space"></div></div><div><b>Thủ kho</b><small>(Ký, họ tên)</small><div class="signature-space"></div></div><div><b>Người duyệt</b><small>(Ký, họ tên)</small><div class="signature-space"></div></div></div>${store.footerNote ? `<p class="footer">${esc(store.footerNote)}</p>` : ''}<script>window.addEventListener('load',()=>window.print())<\/script></body></html>`);
   w.document.close();
+}
+
+function slipDetailActions(kind, slip) {
+  const pencil = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4 4 16.5Z"/><path d="m14.8 5.7 3.5 3.5"/></svg>';
+  const trash = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-.8 13H6.8L6 7m4 4v5m4-5v5"/></svg>';
+  const printer = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7zM17 11h.01"/></svg>';
+  return `<div class="slip-detail-tools"><button data-action="slip-detail-edit-v2" data-kind="${kind}" data-id="${esc(slip.id)}" title="Sửa phiếu" aria-label="Sửa phiếu">${pencil}<span>Sửa</span></button><button class="danger" data-action="slip-detail-delete-v2" data-kind="${kind}" data-id="${esc(slip.id)}" title="Xóa phiếu" aria-label="Xóa phiếu">${trash}<span>Xóa</span></button><button class="primary" data-action="slip-detail-print-v2" data-kind="${kind}" data-id="${esc(slip.id)}" title="In phiếu" aria-label="In phiếu">${printer}<span>In phiếu</span></button></div>`;
+}
+
+function showSlipDetails(kind, slip) {
+  const inSlip = kind === 'IN' || kind === 'inbound';
+  const body = `<div class="slip-detail-meta"><div><small>Số phiếu</small><b>${esc(slip.no)}</b></div><div><small>Ngày ${inSlip ? 'nhập' : 'xuất'}</small><b>${formatDateVi(slip.date)}</b></div><div><small>${inSlip ? 'Nhà cung cấp' : 'Nơi nhận'}</small><b>${esc(slip.party || '—')}</b></div><div><small>Người lập</small><b>${esc(slip.creator || '—')}</b></div></div>${table(['Mã hàng','Tên hàng','ĐVT','Số lượng',...(inSlip ? ['Đơn giá','Thành tiền'] : [])], slip.lines.map(x => `<tr><td>${esc(x.code)}</td><td>${esc(x.name)}</td><td>${esc(x.unit)}</td><td>${num(x.qty)}</td>${inSlip ? `<td>${money(x.price)}</td><td>${money(Number(x.qty) * Number(x.price))}</td>` : ''}</tr>`))}${inSlip ? `<p class="slip-detail-total">Tổng tiền: ${money(slip.total)}</p>` : ''}${slip.note ? `<p class="slip-detail-note"><b>Ghi chú:</b> ${esc(slip.note)}</p>` : ''}`;
+  modal(`Chi tiết phiếu ${esc(slip.no)}`, body, `${slipDetailActions(inSlip ? 'inbound' : 'outbound', slip)}<button data-action="close">Đóng</button>`);
 }
 
 function excelHeaderKey(value) {
@@ -333,8 +359,32 @@ async function handleSpecAction(action, button) {
     const slip = currentSlip(page, button.dataset.id);
     if (!slip) throw Error('Không tìm thấy phiếu đã lưu.');
     if (button.dataset.operation === 'print') printSlip(page, slip.id);
-    else modal(`Phiếu ${esc(slip.no)}`, `<p>${esc(slip.party || '')} · ${formatDateVi(slip.date)} · Người lập: ${esc(slip.creator || '')}</p>${table(['Mã hàng','Tên hàng','ĐVT','Số lượng',kind === 'IN' ? 'Đơn giá' : ''].filter(Boolean), slip.lines.map(x => `<tr><td>${esc(x.code)}</td><td>${esc(x.name)}</td><td>${esc(x.unit)}</td><td>${num(x.qty)}</td>${kind === 'IN' ? `<td>${money(x.price)}</td>` : ''}</tr>`))}`, '<button data-action="close">Đóng</button>');
+    else showSlipDetails(kind, slip);
     return true;
+  }
+  if (action === 'view-slip-detail-v2') {
+    const kind = button.dataset.kind === 'inbound' ? 'IN' : 'OUT';
+    await ensureSlipData(kind);
+    const slip = currentSlip(kind === 'IN' ? 'inbound' : 'outbound', button.dataset.id);
+    if (!slip) throw Error('Không tìm thấy phiếu đã lưu.');
+    showSlipDetails(kind, slip); return true;
+  }
+  if (action === 'slip-detail-edit-v2') {
+    const page = button.dataset.kind, kind = page === 'inbound' ? 'IN' : 'OUT';
+    const slip = currentSlip(page, button.dataset.id);
+    if (!slip) throw Error('Không tìm thấy phiếu đã lưu.');
+    slipForm(page, slip); return true;
+  }
+  if (action === 'slip-detail-delete-v2') {
+    const page = button.dataset.kind, kind = page === 'inbound' ? 'IN' : 'OUT';
+    const slip = currentSlip(page, button.dataset.id);
+    if (!slip) throw Error('Không tìm thấy phiếu đã lưu.');
+    if (!confirm(`Xóa phiếu ${slip.no}? Thao tác này sẽ cập nhật lại tồn kho.`)) return true;
+    await request('deleteSlip', { kind, slipId: slip.id });
+    $('#modal').innerHTML = ''; await refresh(); notify('Đã xóa phiếu.'); return true;
+  }
+  if (action === 'slip-detail-print-v2') {
+    printSlip(button.dataset.kind, button.dataset.id); return true;
   }
   if (action === 'save-slip-v1') {
     const form = $('#slipForm'); if (!form.reportValidity()) return true;
