@@ -26,3 +26,12 @@ html,body,button,input,select,textarea,table{font-family:"Segoe UI",Arial,sans-s
 .nav-icon svg,.section-icon svg,.slip-form-mark svg{width:24px;height:24px;display:block;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .section-icon svg{width:23px;height:23px}
 @media(max-width:700px){.actions{justify-content:flex-start!important}}
+/* Sidebar branding, viewport behavior, dashboard card balance, and requested settings icons. */
+.brand-copy b{font-size:17px;letter-spacing:.5px;line-height:1.15}
+.brand-copy strong{display:block;margin-top:2px;color:#fff;font-size:14px;font-weight:700;letter-spacing:.15px;line-height:1.2}
+.brand-copy small{margin-top:3px;font-size:10px}
+.login-card .brand-copy strong{color:#075744!important}
+aside{position:sticky;top:0;align-self:flex-start;height:100vh;height:100dvh;overflow-x:hidden;overflow-y:auto;scrollbar-width:thin}
+.settings-card-icon svg{width:24px;height:24px;display:block;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.stat .value{font-size:clamp(18px,2vw,25px);overflow-wrap:anywhere}
+@media(max-width:760px){aside{position:relative;top:auto;align-self:stretch;height:auto;overflow:visible}.brand-copy b{font-size:16px}.brand-copy strong{font-size:13px}.brand-copy small{font-size:10px}}
