@@ -72,4 +72,4 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button,[da
 function excelDate(v){if(v instanceof Date)return `${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}-${String(v.getDate()).padStart(2,'0')}`;if(typeof v==='number'&&window.XLSX)return XLSX.SSF.format('yyyy-mm-dd',v);const s=String(v||today());if(/^\d{4}-\d\d-\d\d$/.test(s))return s;const m=/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/.exec(s);return m?`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`:today()}
 document.addEventListener('input',e=>{if(e.target.id==='search'||e.target.id==='global-search'){state.query=e.target.value;render();for(const id of ['search','global-search']){const x=$('#'+id);if(x){x.value=state.query;if(e.target.id===id){x.focus();x.setSelectionRange(x.value.length,x.value.length)}}}}});
 $('#loginForm').addEventListener('submit',login);$('#apiUrl').value=apiUrl();$('#theme').onclick=()=>{state.theme=state.theme==='dark'?'light':'dark';localStorage.setItem('vfs-theme',state.theme);render()};$('#logout').onclick=()=>logout();
-if(state.token&&state.user){showApp();refresh()}else showLogin();
+if(!state.token||!state.user)showLogin();
