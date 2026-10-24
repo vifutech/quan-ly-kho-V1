@@ -69,3 +69,25 @@ body.dark .value-chart-track{background:#30495e}
 @media(max-width:900px){.dashboard-top-tables{grid-template-columns:1fr}.dash-chart-controls{width:100%;justify-content:flex-start}.dash-chart-controls select{flex:1;width:50%;max-width:none}}
 /* Keep the low-stock panel spaced consistently after the two ranked tables. */
 .dashboard-top-tables+.panel{margin-top:15px}
+
+/* User Excel permissions and aligned account/password dialogs. */
+.excel-layout.excel-export-only{grid-template-columns:minmax(0,1fr)}
+.excel-layout.excel-export-only .excel-export{max-width:760px;width:100%}
+.dialog-modal{width:min(620px,100%);padding:22px 24px}
+.dialog-modal .modalhead{align-items:center;border-bottom:1px solid var(--line);padding-bottom:13px;margin-bottom:14px}
+.dialog-modal .modalhead h2{margin:0;color:var(--text);font-size:19px}
+.dialog-form{display:grid;gap:12px}
+.dialog-intro{margin:0 0 2px;color:var(--muted);font-size:13px;line-height:1.5}
+.dialog-fields{display:grid;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--card)}
+.dialog-field{display:grid;grid-template-columns:minmax(150px,190px) minmax(0,1fr);align-items:center;gap:16px;min-height:62px;padding:11px 14px;background:#f7fafc;border-bottom:1px solid var(--line)}
+.dialog-field:nth-child(even){background:#eef4f7}
+.dialog-field:last-child{border-bottom:0}
+.dialog-field>span{font-size:13px;font-weight:650;color:var(--text)}
+.dialog-input{display:grid;gap:5px;min-width:0}
+.dialog-field input{width:100%;min-height:39px;padding:9px 11px;border:1px solid #cbd9e8;border-radius:7px;background:var(--card);color:var(--text);font:inherit;font-size:13px}
+.dialog-field input:focus{outline:2px solid #08765333;border-color:var(--green)}
+.dialog-input small{font-size:11px;line-height:1.4;color:var(--muted)}
+.dialog-modal .right{border-top:1px solid var(--line);padding-top:14px;margin-top:15px}
+body.dark .dialog-field,body.dark .dialog-field:nth-child(even){background:#1a3041}
+body.dark .dialog-field input{border-color:var(--line)}
+@media(max-width:560px){.dialog-modal{padding:17px}.dialog-field{grid-template-columns:1fr;gap:6px;padding:10px 12px}.dialog-modal .right{flex-wrap:wrap}.excel-layout.excel-export-only .excel-export{max-width:none}}
