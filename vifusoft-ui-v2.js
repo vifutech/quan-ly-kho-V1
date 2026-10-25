@@ -565,9 +565,11 @@ function syncMobileNavigation() {
 }
 
 document.addEventListener('click', event => {
-  if (event.target.closest('.mobile-nav-items [data-page]')) {
-    const menu = event.target.closest('.mobile-nav-card');
+  const mobileOption = event.target.closest('.mobile-nav-items [data-page]');
+  if (mobileOption) {
+    const menu = mobileOption.closest('.mobile-nav-card');
     if (menu) menu.open = false;
+    return;
   }
   const toggle = event.target.closest('.mobile-settings-toggle');
   if (toggle) {
@@ -575,4 +577,4 @@ document.addEventListener('click', event => {
     const open = shell.classList.toggle('is-open');
     toggle.setAttribute('aria-expanded', String(open));
   }
-});
+}, true);
