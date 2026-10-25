@@ -561,6 +561,10 @@ function syncMobileNavigation() {
     clone.classList.add('mobile-nav-option');
     return clone.outerHTML;
   }).join('');
+  list.querySelectorAll('[data-page]').forEach(button => button.addEventListener('click', () => {
+    const menu = button.closest('.mobile-nav-card');
+    if (menu) menu.open = false;
+  }, true));
   if (current) current.textContent = pages[state.page] || 'Tổng quan';
 }
 
