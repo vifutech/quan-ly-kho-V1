@@ -192,10 +192,11 @@ function render() {
   updateProfile();
   const todayPill = $('#today-pill');
   if (todayPill) todayPill.textContent = new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
-  document.querySelectorAll('nav [data-page]').forEach(b => {
+  document.querySelectorAll('#nav [data-page]').forEach(b => {
     b.hidden = b.dataset.page === 'accounts' && state.user?.role !== 'ADMIN';
     b.classList.toggle('active', b.dataset.page === state.page);
   });
+  syncMobileNavigation();
   let content = '';
   const low = state.items.filter(x => x.TRANG_THAI === 'Đang dùng' && Number(x.TON_HIEN_TAI) <= Number(x.TON_TOI_THIEU));
   if (state.page === 'dashboard') content = dashboardView();
@@ -244,7 +245,8 @@ function settingsPanel() {
   if (state.settingsTab === 'security') body = `<div class="settings-card-grid"><section class="settings-card"><div class="settings-card-heading"><span class="settings-card-icon">✓</span><div><h3>Phiên đăng nhập</h3><p>Phiên và quyền thao tác được xác minh tại Apps Script.</p></div></div></section><section class="settings-card"><div class="settings-card-heading"><span class="settings-card-icon">${shieldIcon}</span><div><h3>Bảo vệ tài khoản</h3><p>Không chia sẻ mật khẩu hoặc mã phiên với người khác.</p></div></div></section></div>`;
   if (state.settingsTab === 'appearance') body = `<section class="settings-card settings-option"><div class="settings-card-heading"><span class="settings-card-icon">◐</span><div><h3>Giao diện cá nhân</h3><p>Chọn giao diện hiển thị trong trình duyệt này.</p></div></div><button data-action="theme">${state.theme === 'dark' ? 'Chuyển sang sáng' : 'Chuyển sang tối'}</button></section>`;
   if (state.settingsTab === 'password') body = `<section class="settings-card settings-option"><div class="settings-card-heading"><span class="settings-card-icon">${keyIcon}</span><div><h3>Mật khẩu tài khoản</h3><p>Đổi mật khẩu đăng nhập hiện tại của anh.</p></div></div><button class="primary" data-action="change-password">Đổi mật khẩu</button></section>`;
-  return panel('Cài đặt', `<div class="tabs">${tabs.map(([id, label]) => `<button data-setting="${id}" class="${state.settingsTab === id ? 'active' : ''}">${label}</button>`).join('')}</div>${body}`);
+  const activeTab = tabs.find(([id]) => id === state.settingsTab)?.[1] || 'Bảo mật';
+  return panel('Cài đặt', `<div class="settings-tabs-shell"><button type="button" class="mobile-settings-toggle" aria-expanded="false"><span><small>NHÓM CÀI ĐẶT</small><b>${activeTab}</b></span><span class="mobile-nav-chevron" aria-hidden="true">⌄</span></button><div class="tabs">${tabs.map(([id, label]) => `<button data-setting="${id}" class="${state.settingsTab === id ? 'active' : ''}">${label}</button>`).join('')}</div></div>${body}`);
 }
 
 function lineHTML(line, kind) {
@@ -545,4 +547,32 @@ if (state.token && state.user) { showApp(); refresh(); } else showLogin();
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-go][data-low]');
   if (b) { state.lowOnly = true; state.page = 'stock'; render(); }
+});
+
+
+function syncMobileNavigation() {
+  const list = $('#mobileNavItems');
+  const current = $('#mobileNavCurrent');
+  const source = $('#nav');
+  if (!list || !source) return;
+  list.innerHTML = [...source.querySelectorAll('[data-page]:not([hidden])')].map(button => {
+    const clone = button.cloneNode(true);
+    clone.type = 'button';
+    clone.classList.add('mobile-nav-option');
+    return clone.outerHTML;
+  }).join('');
+  if (current) current.textContent = pages[state.page] || 'Tổng quan';
+}
+
+document.addEventListener('click', event => {
+  if (event.target.closest('.mobile-nav-items [data-page]')) {
+    const menu = event.target.closest('.mobile-nav-card');
+    if (menu) menu.open = false;
+  }
+  const toggle = event.target.closest('.mobile-settings-toggle');
+  if (toggle) {
+    const shell = toggle.closest('.settings-tabs-shell');
+    const open = shell.classList.toggle('is-open');
+    toggle.setAttribute('aria-expanded', String(open));
+  }
 });
