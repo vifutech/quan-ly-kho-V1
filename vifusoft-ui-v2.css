@@ -128,3 +128,33 @@ body.dark .dialog-field input{border-color:var(--line)}
   body.dark .mobile-settings-toggle { background: #1a3041; }
 }
 @media (min-width: 761px) { .settings-tabs-shell { margin-bottom: 0; } .settings-tabs-shell .tabs { display: flex; } }
+
+/* Refined add/edit item dialog: aligned fields, clear hierarchy, responsive layout. */
+.item-dialog { width: min(650px, 100%); padding: 23px 25px; }
+.item-dialog .modalhead { align-items: flex-start; margin-bottom: 8px; }
+.item-dialog .modalhead h2 { margin: 0; color: var(--text); font-size: 20px; line-height: 1.3; }
+.item-form { display: grid; gap: 15px; }
+.item-form-intro { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.item-form-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px 16px; padding: 17px; border: 1px solid var(--line); border-radius: 11px; background: #f8fafb; }
+.item-field { display: grid; align-content: start; gap: 6px; min-width: 0; }
+.item-field>span { color: var(--text); font-size: 12px; font-weight: 700; }
+.item-field>span i { color: #c62838; font-style: normal; }
+.item-field input { width: 100%; min-height: 42px; padding: 10px 11px; border: 1px solid #cbd9e8; border-radius: 7px; background: var(--card); color: var(--text); font: inherit; font-size: 13px; }
+.item-field input:focus { outline: 2px solid #08765330; border-color: var(--green); }
+.item-field input[readonly] { background: #edf2f5; color: #65798b; }
+.item-field small { min-height: 15px; color: var(--muted); font-size: 10px; line-height: 1.4; }
+.item-field-wide { grid-column: 1 / -1; }
+.item-form-note { grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 9px; padding: 10px 12px; border: 1px solid #d5e9df; border-radius: 8px; background: #edf8f2; color: #315d4b; }
+.item-form-note>span { flex: 0 0 auto; color: #087653; font-weight: 800; }
+.item-form-note p { margin: 0; font-size: 11px; line-height: 1.5; }
+.item-dialog .right { gap: 9px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+body.dark .item-form-grid { background: #142638; }
+body.dark .item-field input[readonly] { background: #20384d; }
+body.dark .item-form-note { background: #173b34; border-color: #2d6650; color: #b7e7d0; }
+@media(max-width:560px) {
+  .item-dialog { padding: 17px; }
+  .item-form-grid { grid-template-columns: 1fr; gap: 12px; padding: 13px; }
+  .item-field-wide,.item-form-note { grid-column: 1; }
+  .item-dialog .right { flex-wrap: wrap; }
+  .item-dialog .right button { flex: 1 1 130px; }
+}
