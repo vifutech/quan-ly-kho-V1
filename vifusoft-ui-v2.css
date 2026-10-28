@@ -158,3 +158,18 @@ body.dark .item-form-note { background: #173b34; border-color: #2d6650; color: #
   .item-dialog .right { flex-wrap: wrap; }
   .item-dialog .right button { flex: 1 1 130px; }
 }
+
+/* Batch catalog entry: multiple items are saved through one Apps Script batch request. */
+.item-batch-dialog { width: min(980px, 100%); }
+.item-batch-form { max-height: calc(90vh - 150px); overflow: auto; padding-right: 3px; }
+.item-batch-toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; color:var(--muted); font-size:12px; font-weight:700; }
+.item-entry-list { display:grid; gap:12px; }
+.item-entry-row { padding:13px; border:1px solid var(--line); border-radius:10px; background:#f8fafb; }
+.item-entry-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; color:var(--green); font-size:12px; }
+.item-row-remove { padding:5px 9px; border-color:#f1d1d4; color:#ad3540; background:#fff; font-size:11px; }
+.item-entry-row .item-form-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:11px 13px; padding:0; border:0; background:transparent; }
+.item-entry-row .item-field-wide { grid-column:span 2; }
+body.dark .item-entry-row { background:#142638; }
+body.dark .item-row-remove { background:#472a32; border-color:#70404a; color:#ffb5bc; }
+@media(max-width:700px) { .item-batch-form { max-height:calc(90vh - 140px); } .item-entry-row .item-form-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .item-entry-row .item-field-wide { grid-column:1/-1; } }
+@media(max-width:430px) { .item-entry-row .item-form-grid { grid-template-columns:1fr; } .item-entry-row .item-field-wide { grid-column:1; } }
